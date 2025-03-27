@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Microloan Platform</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Ethers.js loading with multiple fallbacks -->
+    <script>
+        // Function to load ethers.js from various sources with fallbacks
+        function loadEthers() {
+            console.log("Starting ethers.js loading process...");
+            // Sources to try in order
+            const sources = [
+                "js/ethers-5.7.2.umd.min.js",  // Local file first for faster loading
+                "https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js",
+                "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js",
+                "https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"
+            ];
+            
+            let currentIndex = 0;
+            
+            function tryNextSource() {
+                if (currentIndex >= sources.length) {
+                    console.error("All ethers.js sources failed to load");
+                    return;
+                }
+                
+                console.log(`Attempting to load ethers.js from source ${currentIndex + 1}/${sources.length}: ${sources[currentIndex]}`);
+                const script = document.createElement('script');
+                script.src = sources[currentIndex];
+                script.type = "application/javascript";
+                
+                script.onload = function() {
+                    console.log(`Successfully loaded ethers.js from ${sources[currentIndex]}`);
+                    
+                    // Verify ethers is actually available
+                    setTimeout(() => {
+                        if (typeof window.ethers !== 'undefined') {
+                            console.log("ethers.js is available:", window.ethers.version);
+                            // Initialize contractUtils if needed
+                            if (window.contractUtils && typeof window.contractUtils.init === 'function') {
+                                window.contractUtils.init();
+                            }
+                        } else {
+                            console.warn(`ethers.js loaded from ${sources[currentIndex]} but not available as window.ethers`);
+                            currentIndex++;
+                            tryNextSource();
+                        }
+                    }, 100);
+                };
+                
+                script.onerror = function() {
+                    console.warn(`Failed to load ethers.js from ${sources[currentIndex]}`);
+                    currentIndex++;
+                    tryNextSource();
+                };
+                
+                document.head.appendChild(script);
+            }
+            
+            // Start loading process immediately
+            tryNextSource();
+        }
+        
+        // Load ethers.js immediately
+        if (typeof window.ethers === 'undefined') {
+            console.log("ethers.js not found, loading now...");
+            loadEthers();
+        } else {
+            console.log("ethers.js already loaded:", window.ethers.version);
+        }
+    </script>
+    <script src="js/contract.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to Blockchain Microloan Platform</h1>
+        <p class="subtitle">A secure and transparent lending platform powered by Ethereum</p>
+        
+        <div class="wallet-section">
+            <button id="connectWallet" class="wallet-btn">Connect Wallet</button>
+            <button id="switchAccount" class="wallet-btn">Switch Account</button>
+            <p id="walletAddress">Not connected</p>
+            <p id="networkInfo">Network: Not detected</p>
+            <p id="walletBalance">Balance: 0 ETH</p>
+        </div>
+
+        <div id="walletStatus"></div>
+        <div id="networkAlert"></div>
+
+        <div class="platform-stats">
+            <h3>Platform Statistics</h3>
+            <div class="stats-container">
+                <div class="stat-box">
+                    <span class="stat-value" id="totalLoans">0</span>
+                    <span class="stat-label">Active Loans</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="totalVolume">0 ETH</span>
+                    <span class="stat-label">Total Volume</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="avgInterestRate">0%</span>
+                    <span class="stat-label">Avg. Interest Rate</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="role-selection">
+            <h2>Select Your Role</h2>
+            <div class="buttons">
+                <button id="borrowerBtn" class="role-btn borrower">I'm a Borrower</button>
+                <button id="lenderBtn" class="role-btn lender">I'm a Lender</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="js/debug.js"></script>
+</body>
+</html>

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lender Dashboard | Blockchain Microloan Platform</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Ethers.js loading with multiple fallbacks -->
+    <script>
+        // Function to load ethers.js from various sources with fallbacks
+        function loadEthers() {
+            // Sources to try in order
+            const sources = [
+                "https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js",
+                "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js",
+                "https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js",
+                "js/ethers-5.7.2.umd.min.js"  // Local fallback
+            ];
+            
+            let currentIndex = 0;
+            
+            function tryNextSource() {
+                if (currentIndex >= sources.length) {
+                    console.error("All ethers.js sources failed to load");
+                    alert("Failed to load essential libraries. Please check your internet connection and refresh the page.");
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = sources[currentIndex];
+                script.type = "application/javascript";
+                
+                script.onload = function() {
+                    console.log(`Successfully loaded ethers.js from ${sources[currentIndex]}`);
+                    
+                    // Verify ethers is actually available
+                    setTimeout(() => {
+                        if (typeof window.ethers !== 'undefined') {
+                            console.log("ethers.js is available:", window.ethers.version);
+                            // Initialize contractUtils if needed
+                            if (window.contractUtils && typeof window.contractUtils.init === 'function') {
+                                window.contractUtils.init();
+                            }
+                        } else {
+                            console.warn(`ethers.js loaded from ${sources[currentIndex]} but not available as window.ethers`);
+                            currentIndex++;
+                            tryNextSource();
+                        }
+                    }, 100);
+                };
+                
+                script.onerror = function() {
+                    console.warn(`Failed to load ethers.js from ${sources[currentIndex]}`);
+                    currentIndex++;
+                    tryNextSource();
+                };
+                
+                document.head.appendChild(script);
+            }
+            
+            // Start loading process
+            tryNextSource();
+        }
+        
+        // Load ethers.js when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if ethers is already defined
+            if (typeof window.ethers === 'undefined') {
+                loadEthers();
+            }
+        });
+    </script>
+    <script src="js/contract.js"></script>
+</head>
+<body>
+    <div class="container">
+        <nav class="navigation">
+            <a href="index.html" class="home-link">← Back to Home</a>
+        </nav>
+        
+        <h1>Lender Dashboard</h1>
+        <p class="subtitle">Fund loans and earn interest on your investments</p>
+        
+        <div class="guide-banner">
+            <strong>Account Guide:</strong> 
+            You should be using Account 1 (0xb3929a010Cf3297e02eFC77D7Aa17a6B23b4EfaB) on this page.
+            <button class="guide-btn" onclick="checkLoansManually()">Check Your Setup</button>
+        </div>
+        
+        <div class="wallet-section">
+            <button id="connectWallet" class="wallet-btn">Connect Wallet</button>
+            <button id="switchAccount" class="wallet-btn">Switch Account</button>
+            <p id="walletAddress">Not connected</p>
+            <p id="networkInfo">Network: Not detected</p>
+            <p id="walletBalance">Balance: 0 ETH</p>
+        </div>
+
+        <div id="walletStatus"></div>
+        <div id="networkAlert"></div>
+        <div id="diagnosticResults"></div>
+
+        <div class="dashboard-stats">
+            <h3>My Investment Statistics</h3>
+            <div class="stats-container">
+                <div class="stat-box">
+                    <span class="stat-value" id="fundedLoansCount">0</span>
+                    <span class="stat-label">Funded Loans</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="totalInvested">0 ETH</span>
+                    <span class="stat-label">Total Invested</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="totalEarnings">0 ETH</span>
+                    <span class="stat-label">Total Earnings</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Loan Applications</h2>
+            <p class="subtitle">Review borrower applications and approve funding</p>
+            
+            <div class="table-container">
+                <table id="loanApplicationsTable" class="loan-table">
+                    <thead>
+                        <tr>
+                            <th>Application ID</th>
+                            <th>Borrower Address</th>
+                            <th>Amount (ETH)</th>
+                            <th>Interest Rate (%)</th>
+                            <th>Duration (Days)</th>
+                            <th>Purpose</th>
+                            <th>Repayment Plan</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="loanApplicationsBody">
+                        <!-- Loan applications will be populated here -->
+                        <tr class="empty-row">
+                            <td colspan="9">Connect your wallet to view loan applications</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Available Loans to Fund</h2>
+            <div class="action-bar">
+                <button id="refreshAvailableLoans" class="refresh-btn">Refresh Loans</button>
+                <button id="manualCheckBtn" class="diagnostic-btn" onclick="checkLoansManually()">Check Loans Manually</button>
+            </div>
+            <div class="filter-controls">
+                <div class="form-group">
+                    <label for="minInterestRate">Min Interest Rate (%)</label>
+                    <input type="number" id="minInterestRate" placeholder="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label for="maxDuration">Max Duration (Days)</label>
+                    <input type="number" id="maxDuration" placeholder="365" min="1">
+                </div>
+                <button id="applyFilters" class="filter-btn">Apply Filters</button>
+            </div>
+            <div class="loans-list" id="availableLoans">
+                <p class="empty-state">Loading available loans... Connect your wallet to view loans.</p>
+            </div>
+        </div>
+
+        <div class="section" id="fundLoanSection">
+            <h2>Fund a Loan</h2>
+            <div class="form-group">
+                <label for="loanId">Loan ID</label>
+                <input type="number" id="loanId" placeholder="Enter loan ID">
+            </div>
+            <button id="fundLoan" class="action-btn">Fund This Loan</button>
+            <div id="fundingStatus" class="status-message"></div>
+        </div>
+
+        <div class="section">
+            <h2>My Funded Loans</h2>
+            <div class="loans-list" id="fundedLoans">
+                <p class="empty-state">No funded loans found. Connect your wallet to view your investments.</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Withdraw Earnings</h2>
+            <div class="earnings-summary">
+                <div class="earnings-item">
+                    <span>Available Earnings:</span>
+                    <span id="availableEarnings">0 ETH</span>
+                </div>
+                <div class="earnings-item">
+                    <span>Pending Earnings:</span>
+                    <span id="pendingEarnings">0 ETH</span>
+                </div>
+            </div>
+            <button id="withdrawEarnings" class="action-btn">Withdraw Available Earnings</button>
+            <div id="withdrawalStatus" class="status-message"></div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="lender.js"></script>
+    <script src="js/debug.js"></script>
+    
+    <!-- Add new script for handling loan applications -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Reference to the contract
+            let loanContract;
+            let userAccount;
+            
+            // Initialize once wallet is connected
+            function initLoanApplications() {
+                if (typeof contractUtils === 'undefined' || !contractUtils.contract) {
+                    console.error("Contract utilities not available");
+                    return;
+                }
+                
+                loanContract = contractUtils.contract;
+                userAccount = contractUtils.accounts[0];
+                
+                // Load loan applications
+                loadLoanApplications();
+                
+                // Set up event listener for new applications
+                setupEventListeners();
+            }
+            
+            async function loadLoanApplications() {
+                const applicationsTable = document.getElementById('loanApplicationsBody');
+                
+                try {
+                    // Clear table first
+                    applicationsTable.innerHTML = '';
+                    
+                    // Get all loan applications from the contract
+                    const loanCount = await loanContract.getLoanApplicationsCount();
+                    
+                    if (loanCount == 0) {
+                        applicationsTable.innerHTML = `
+                            <tr class="empty-row">
+                                <td colspan="9">No loan applications found</td>
+                            </tr>
+                        `;
+                        return;
+                    }
+                    
+                    // Iterate through loans and display those that are pending approval
+                    for (let i = 0; i < loanCount; i++) {
+                        const loanId = i;
+                        const loanDetails = await loanContract.getLoanApplication(loanId);
+                        
+                        // Only show loans that are awaiting approval (not yet funded)
+                        if (loanDetails.status === 0) { // Assuming 0 = Pending
+                            const row = createLoanApplicationRow(loanId, loanDetails);
+                            applicationsTable.appendChild(row);
+                        }
+                    }
+                    
+                    // If no pending loans after filtering
+                    if (applicationsTable.children.length === 0) {
+                        applicationsTable.innerHTML = `
+                            <tr class="empty-row">
+                                <td colspan="9">No pending loan applications found</td>
+                            </tr>
+                        `;
+                    }
+                } catch (error) {
+                    console.error("Error loading loan applications:", error);
+                    applicationsTable.innerHTML = `
+                        <tr class="empty-row">
+                            <td colspan="9">Error loading loan applications. Please check your connection.</td>
+                        </tr>
+                    `;
+                }
+            }
+            
+            function createLoanApplicationRow(loanId, loanDetails) {
+                const row = document.createElement('tr');
+                
+                // Format ETH values from wei
+                const amountEth = ethers.utils.formatEther(loanDetails.amount);
+                
+                // Convert duration from seconds to days
+                const durationDays = Math.floor(loanDetails.duration / (24 * 60 * 60));
+                
+                // Get status text
+                const statusText = getStatusText(loanDetails.status);
+                
+                row.innerHTML = `
+                    <td>${loanId}</td>
+                    <td class="address-cell">${shortenAddress(loanDetails.borrower)}</td>
+                    <td>${amountEth}</td>
+                    <td>${loanDetails.interestRate / 100}%</td>
+                    <td>${durationDays}</td>
+                    <td>${loanDetails.purpose || "Not specified"}</td>
+                    <td>${loanDetails.repaymentPlan || "Not specified"}</td>
+                    <td class="status-cell ${statusText.toLowerCase()}">${statusText}</td>
+                    <td>
+                        <button class="approve-btn" data-loan-id="${loanId}">Approve & Fund</button>
+                    </td>
+                `;
+                
+                // Add event listener to the approve button
+                const approveBtn = row.querySelector('.approve-btn');
+                approveBtn.addEventListener('click', () => approveLoan(loanId, loanDetails.amount));
+                
+                return row;
+            }
+            
+            function getStatusText(statusCode) {
+                // Convert numerical status to text
+                switch (Number(statusCode)) {
+                    case 0: return "Pending";
+                    case 1: return "Approved";
+                    case 2: return "Funded";
+                    case 3: return "Repaid";
+                    case 4: return "Defaulted";
+                    default: return "Unknown";
+                }
+            }
+            
+            function shortenAddress(address) {
+                return address.substring(0, 6) + '...' + address.substring(address.length - 4);
+            }
+            
+            async function approveLoan(loanId, amount) {
+                try {
+                    // Update button to show processing
+                    const btn = document.querySelector(`.approve-btn[data-loan-id="${loanId}"]`);
+                    btn.textContent = "Processing...";
+                    btn.disabled = true;
+                    
+                    // Call contract to approve and fund the loan
+                    const tx = await loanContract.approveLoan(loanId, {
+                        value: amount,
+                        gasLimit: 300000 // Adjust as needed
+                    });
+                    
+                    // Wait for transaction confirmation
+                    btn.textContent = "Confirming...";
+                    await tx.wait();
+                    
+                    // Update UI to show approved
+                    btn.textContent = "Approved ✓";
+                    btn.classList.remove("approve-btn");
+                    btn.classList.add("approved-btn");
+                    
+                    // Refresh the loans list
+                    setTimeout(loadLoanApplications, 2000);
+                    
+                    // Also refresh funded loans section if it exists
+                    if (typeof refreshFundedLoans === 'function') {
+                        setTimeout(refreshFundedLoans, 2000);
+                    }
+                    
+                } catch (error) {
+                    console.error("Error approving loan:", error);
+                    
+                    // Reset button
+                    const btn = document.querySelector(`.approve-btn[data-loan-id="${loanId}"]`);
+                    if (btn) {
+                        btn.textContent = "Approve & Fund";
+                        btn.disabled = false;
+                    }
+                    
+                    // Show error message
+                    alert("Failed to approve loan: " + (error.message || "Unknown error"));
+                }
+            }
+            
+            function setupEventListeners() {
+                // Listen for new loan applications
+                loanContract.on("LoanApplicationSubmitted", (loanId, borrower, amount) => {
+                    console.log("New loan application:", loanId.toString());
+                    loadLoanApplications();
+                });
+                
+                // Listen for loan approvals
+                loanContract.on("LoanApproved", (loanId, lender) => {
+                    console.log("Loan approved:", loanId.toString());
+                    loadLoanApplications();
+                });
+            }
+            
+            // Check if contractUtils already initialized
+            if (typeof contractUtils !== 'undefined' && contractUtils.isInitialized) {
+                initLoanApplications();
+            } else {
+                // Wait for wallet connection event
+                document.addEventListener('walletConnected', initLoanApplications);
+            }
+        });
+    </script>
+</body>
+</html>

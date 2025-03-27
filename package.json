@@ -1,0 +1,23 @@
+{
+  "name": "microloan-platform",
+  "version": "1.0.0",
+  "description": "A blockchain-based microloan platform using Ethereum smart contracts",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test",
+    "build": "hardhat compile",
+    "start": "node start-local-env.js",
+    "deploy-local": "hardhat run scripts/deploy-local.js --network localhost",
+    "node": "hardhat node"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.3",
+    "http-server": "^14.1.1"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  }
+}

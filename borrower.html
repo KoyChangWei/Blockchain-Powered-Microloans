@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Borrower Dashboard | Blockchain Microloan Platform</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Ethers.js loading with multiple fallbacks -->
+    <script>
+        // Function to load ethers.js from various sources with fallbacks
+        function loadEthers() {
+            // Sources to try in order
+            const sources = [
+                "https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js",
+                "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js",
+                "https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js",
+                "js/ethers-5.7.2.umd.min.js"  // Local fallback
+            ];
+            
+            let currentIndex = 0;
+            
+            function tryNextSource() {
+                if (currentIndex >= sources.length) {
+                    console.error("All ethers.js sources failed to load");
+                    alert("Failed to load essential libraries. Please check your internet connection and refresh the page.");
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = sources[currentIndex];
+                script.type = "application/javascript";
+                
+                script.onload = function() {
+                    console.log(`Successfully loaded ethers.js from ${sources[currentIndex]}`);
+                    
+                    // Verify ethers is actually available
+                    setTimeout(() => {
+                        if (typeof window.ethers !== 'undefined') {
+                            console.log("ethers.js is available:", window.ethers.version);
+                            // Initialize contractUtils if needed
+                            if (window.contractUtils && typeof window.contractUtils.init === 'function') {
+                                window.contractUtils.init();
+                            }
+                        } else {
+                            console.warn(`ethers.js loaded from ${sources[currentIndex]} but not available as window.ethers`);
+                            currentIndex++;
+                            tryNextSource();
+                        }
+                    }, 100);
+                };
+                
+                script.onerror = function() {
+                    console.warn(`Failed to load ethers.js from ${sources[currentIndex]}`);
+                    currentIndex++;
+                    tryNextSource();
+                };
+                
+                document.head.appendChild(script);
+            }
+            
+            // Start loading process
+            tryNextSource();
+        }
+        
+        // Load ethers.js when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if ethers is already defined
+            if (typeof window.ethers === 'undefined') {
+                loadEthers();
+            }
+        });
+    </script>
+    <script src="js/contract.js"></script>
+</head>
+<body>
+    <div class="container">
+        <nav class="navigation">
+            <a href="index.html" class="home-link">← Back to Home</a>
+        </nav>
+        
+        <h1>Borrower Dashboard</h1>
+        <p class="subtitle">Apply for and manage your microloans</p>
+        
+        <div class="guide-banner">
+            <strong>Account Guide:</strong> 
+            You should be using Account 2 (0x33D8af5C27B4Df100Bb959E7241FA5175fc28dBB) on this page.
+            <button class="guide-btn" onclick="checkLoansManually()">Check Your Setup</button>
+        </div>
+        
+        <div class="wallet-section">
+            <button id="connectWallet" class="wallet-btn">Connect Wallet</button>
+            <button id="switchAccount" class="wallet-btn">Switch Account</button>
+            <p id="walletAddress">Not connected</p>
+            <p id="networkInfo">Network: Not detected</p>
+            <p id="walletBalance">Balance: 0 ETH</p>
+        </div>
+
+        <div id="walletStatus"></div>
+        <div id="networkAlert"></div>
+
+        <div class="dashboard-stats">
+            <h3>My Loan Statistics</h3>
+            <div class="stats-container">
+                <div class="stat-box">
+                    <span class="stat-value" id="activeLoans">0</span>
+                    <span class="stat-label">Active Loans</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="totalBorrowed">0 ETH</span>
+                    <span class="stat-label">Total Borrowed</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="nextPayment">None</span>
+                    <span class="stat-label">Next Payment</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Apply for a Loan</h2>
+            <div class="form-group">
+                <label for="loanAmount">Loan Amount (ETH)</label>
+                <input type="number" id="loanAmount" placeholder="0.1" step="0.01" min="0.01">
+            </div>
+            <div class="form-group">
+                <label for="interestRate">Interest Rate (%)</label>
+                <input type="number" id="interestRate" placeholder="5" step="0.1" min="0.1">
+            </div>
+            <div class="form-group">
+                <label for="loanDuration">Duration (Days)</label>
+                <input type="number" id="loanDuration" placeholder="30" step="1" min="1">
+            </div>
+            <div class="form-group">
+                <label for="isCollateralized">Provide Collateral</label>
+                <input type="checkbox" id="isCollateralized">
+            </div>
+            <div class="form-group" id="collateralGroup" style="display:none;">
+                <label for="collateralAmount">Collateral Amount (ETH)</label>
+                <input type="number" id="collateralAmount" placeholder="0.05" step="0.01" min="0.01">
+            </div>
+            <div class="form-group">
+                <label for="loanPurpose">Loan Purpose</label>
+                <select id="loanPurpose">
+                    <option value="business">Business</option>
+                    <option value="education">Education</option>
+                    <option value="healthcare">Healthcare</option>
+                    <option value="housing">Housing</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <button id="applyLoan" class="action-btn">Apply for Loan</button>
+            <div id="loanApplicationStatus" class="status-message"></div>
+        </div>
+
+        <div class="section">
+            <h2>My Active Loans</h2>
+            <div class="action-bar">
+                <button id="refreshLoans" class="refresh-btn">Refresh Loans</button>
+                <button id="manualCheckBtn" class="diagnostic-btn" onclick="checkLoansManually()">Check Loans Manually</button>
+            </div>
+            <div id="diagnosticResults"></div>
+            <div class="table-container">
+                <table id="activeLoansTable" class="loan-table">
+                    <thead>
+                        <tr>
+                            <th>Loan ID</th>
+                            <th>Amount (ETH)</th>
+                            <th>Interest Rate (%)</th>
+                            <th>Duration (Days)</th>
+                            <th>Status</th>
+                            <th>Created Date</th>
+                            <th>Due Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activeLoansBody">
+                        <tr class="empty-row">
+                            <td colspan="8">No active loans found. Connect your wallet to view your loans.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section" id="repayLoanSection">
+            <h2>Repay Loan</h2>
+            <div class="form-group">
+                <label for="repayLoanId">Loan ID</label>
+                <input type="number" id="repayLoanId" placeholder="Enter loan ID">
+            </div>
+            <div class="form-group">
+                <label for="repayAmount">Amount to Repay (ETH)</label>
+                <input type="number" id="repayAmount" placeholder="0.0" step="0.01" min="0.01">
+            </div>
+            <button id="repayLoan" class="action-btn">Repay Loan</button>
+            <div id="repaymentStatus" class="status-message"></div>
+        </div>
+        
+        <div id="loanStatus"></div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="borrower.js"></script>
+    <script src="js/debug.js"></script>
+    <script>
+        // Show/hide collateral amount based on checkbox
+        document.addEventListener('DOMContentLoaded', function() {
+            const isCollateralizedCheckbox = document.getElementById('isCollateralized');
+            if (isCollateralizedCheckbox) {
+                isCollateralizedCheckbox.addEventListener('change', function() {
+                    document.getElementById('collateralGroup').style.display = this.checked ? 'block' : 'none';
+                });
+            }
+        });
+    </script>
+</body>
+</html>
